@@ -25,7 +25,8 @@ class FFmpegService
         array $images, ?string $audioPath, string $animationType,
         int $imageDuration, string $resolution, ?string $subtitlePath,
         ?string $watermarkText, bool $showEndCard, array $endCardData,
-        int $projectId, callable $progressCallback
+        int $projectId, callable $progressCallback,
+        float $audioStart = 0, ?float $audioEnd = null
     ): string {
 
         [$w, $h] = explode('x', $resolution);
@@ -91,8 +92,12 @@ class FFmpegService
         $aFull  = $audioPath ? $this->find($audioPath, ['audio']) : null;
 
         if ($aFull) {
-            shell_exec(sprintf('"%s" -i "%s" -i "%s" -map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k -shortest "%s" -y',
-                $this->ff, $this->wp($merged), $this->wp($aFull), $this->wp($wAudio)) . ' 2>&1');
+            $trimFlags = '';
+            if ($audioStart > 0)  $trimFlags .= " -ss {$audioStart}";
+            if ($audioEnd > 0)    $trimFlags .= " -to {$audioEnd}";
+
+            shell_exec(sprintf('"%s" -i "%s"%s -i "%s" -map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k -shortest "%s" -y',
+                $this->ff, $this->wp($merged), $trimFlags, $this->wp($aFull), $this->wp($wAudio)) . ' 2>&1');
         }
         if (!file_exists($wAudio) || filesize($wAudio) < 100) copy($merged, $wAudio);
 
@@ -106,7 +111,7 @@ class FFmpegService
             $srt = str_replace('\\', '/', $subtitlePath);
             $srt = preg_replace('/^([A-Za-z]):/', '$1\\:', $srt);
 
-            $cmd = sprintf('"%s" -i "%s" -vf "subtitles=\'%s\':force_style=\'FontSize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Alignment=2,Bold=1\'" -c:a copy "%s" -y',
+            $cmd = sprintf('"%s" -i "%s" -vf "subtitles=\'%s\':force_style=\'FontSize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Alignment=5,Bold=1\'" -c:a copy "%s" -y',
                 $this->ff, $this->wp($wAudio), $srt, $this->wp($wSubs));
             $o = shell_exec($cmd . ' 2>&1');
             Log::debug("subs: " . substr($o ?? '', -200));
@@ -120,8 +125,10 @@ class FFmpegService
         $vf    = [];
 
         if ($watermarkText) {
-            $t   = str_replace(["'", ':', '[', ']'], ["\\'", '\\:', '\\[', '\\]'], $watermarkText);
-            $vf[] = "drawtext=text='{$t}':fontcolor=white:fontsize=20:alpha=0.9:x=w-tw-20:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=6";
+            $t    = str_replace(["'", ':', '[', ']'], ["\\'", '\\:', '\\[', '\\]'], $watermarkText);
+            $font = $this->findFont();
+            $ff   = $font ? "fontfile='{$font}':" : '';
+            $vf[] = "drawtext={$ff}text='{$t}':fontcolor=white:fontsize=24:alpha=0.9:x=w-tw-20:y=h-th-20:box=1:boxcolor=black@0.5:boxborderw=8";
         }
 
         if (!empty($vf)) {
@@ -198,6 +205,25 @@ class FFmpegService
         $f = $this->find($audioPath, ['audio']);
         if (!$f) return 0.0;
         return (float)trim(shell_exec(sprintf('"%s" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "%s" 2>&1', $this->ffp, $this->wp($f))) ?? '0');
+    }
+
+    private function findFont(): ?string
+    {
+        $fonts = [
+            'C:/Windows/Fonts/arial.ttf',
+            'C:/Windows/Fonts/Arial.ttf',
+            'C:/Windows/Fonts/calibri.ttf',
+            'C:/Windows/Fonts/verdana.ttf',
+            '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+        ];
+        foreach ($fonts as $f) {
+            if (file_exists($f)) {
+                // FFmpeg filter mein Windows drive colon escape karna zaroori hai
+                return preg_replace('/^([A-Za-z]):/', '$1\\:', str_replace('\\', '/', $f));
+            }
+        }
+        return null;
     }
 
     private function clean(string $dir): void

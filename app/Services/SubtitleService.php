@@ -13,12 +13,19 @@ class SubtitleService
         if (empty($segments) && !empty($transcription['text'])) {
             $srt = "1\n00:00:00,000 --> 00:00:05,000\n" . trim($transcription['text']) . "\n\n";
         } else {
-            $idx = 1;
-            foreach ($segments as $seg) {
-                $s    = $this->ts((float)($seg['start'] ?? 0));
-                $e    = $this->ts((float)($seg['end']   ?? 0));
-                $text = trim($seg['text'] ?? '');
-                if (!$text) continue;
+            // Filter empty segments first
+            $segments = array_values(array_filter($segments, fn($seg) => trim($seg['text'] ?? '') !== ''));
+
+            $idx  = 1;
+            $total = count($segments);
+            // Group 4 segments per subtitle entry (4 lines at a time)
+            for ($i = 0; $i < $total; $i += 4) {
+                $group = array_slice($segments, $i, 4);
+
+                $s    = $this->ts((float)($group[0]['start'] ?? 0));
+                $e    = $this->ts((float)($group[array_key_last($group)]['end'] ?? 0));
+                $text = implode("\n", array_map(fn($seg) => trim($seg['text'] ?? ''), $group));
+
                 $srt .= "{$idx}\n{$s} --> {$e}\n{$text}\n\n";
                 $idx++;
             }

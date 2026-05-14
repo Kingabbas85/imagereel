@@ -24,7 +24,7 @@ class VideoProject extends Model Implements HasMedia
 
     protected $fillable = [
         'user_id', 'title', 'description',
-        'image_paths', 'audio_path', 'audio_duration',
+        'image_paths', 'audio_path', 'audio_duration', 'audio_start', 'audio_end',
         'tts_text', 'use_tts', 'tts_voice',
         'animation_type', 'image_duration',
         'generate_subtitles', 'subtitle_language',
@@ -44,6 +44,8 @@ class VideoProject extends Model Implements HasMedia
         'use_tts'                 => 'boolean',
         'show_end_card'           => 'boolean',
         'audio_duration'          => 'float',
+        'audio_start'             => 'float',
+        'audio_end'               => 'float',
         'progress_percent'        => 'integer',
         'image_duration'          => 'integer',
         'video_file_size'         => 'integer',

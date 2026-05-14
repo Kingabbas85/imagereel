@@ -96,7 +96,9 @@ class GenerateVideoJob implements ShouldQueue
                 progressCallback: function (int $p) {
                     $m = 55 + (int)($p * 0.4);
                     $this->step($m, 'processing', "🎞️ Render: {$m}%");
-                }
+                },
+                audioStart:       (float)($this->project->audio_start ?? 0),
+                audioEnd:         $this->project->audio_end ? (float)$this->project->audio_end : null,
             );
 
             // ── STEP 4: Complete ──────────────────────────────
@@ -119,12 +121,14 @@ class GenerateVideoJob implements ShouldQueue
 
             if (str_contains(strtolower($msg), 'rate limit')) {
                 $msg = 'OpenAI rate limit. 1 minute baad dobara Generate karo.';
+            } elseif (str_contains($msg, 'API key')) {
+                $msg = 'OpenAI API key nahi hai. .env mein OPENAI_API_KEY set karo.';
             }
 
             $this->project->update([
                 'status'        => 'failed',
-                'current_step'  => '❌ ' . $msg,
-                'error_message' => $msg,
+                'current_step'  => '❌ ' . mb_substr($msg, 0, 200),
+                'error_message' => mb_substr($msg, 0, 500),
             ]);
 
             Log::error("❌ #{$this->project->id}: " . $e->getMessage());

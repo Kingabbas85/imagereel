@@ -26,7 +26,6 @@ class VideoProjectsTable
     {
         return $table
             ->columns([
-                // Pehli image thumbnail
                 ImageColumn::make('first_image')
                     ->label('')
                     ->getStateUsing(fn($record) =>
@@ -34,19 +33,28 @@ class VideoProjectsTable
                             ? $record->image_paths[0]
                             : null
                     )
-                    ->height(45)
-                    ->width(45),
- 
+                    ->height(56)
+                    ->width(56)
+                    ->extraImgAttributes(['style' => 'border-radius:8px;object-fit:cover;']),
+
                 TextColumn::make('title')
                     ->label('Project')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
- 
-                // Status badge
+                    ->weight('bold')
+                    ->description(fn($record) => $record->video_resolution . ' • ' . ucfirst($record->animation_type ?? '')),
+
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
+                    ->icon(fn(string $state) => match($state) {
+                        'draft'      => 'heroicon-o-pencil-square',
+                        'queued'     => 'heroicon-o-clock',
+                        'processing' => 'heroicon-o-arrow-path',
+                        'completed'  => 'heroicon-o-check-circle',
+                        'failed'     => 'heroicon-o-x-circle',
+                        default      => 'heroicon-o-question-mark-circle',
+                    })
                     ->color(fn(string $state) => match($state) {
                         'draft'      => 'gray',
                         'queued'     => 'warning',
@@ -55,24 +63,36 @@ class VideoProjectsTable
                         'failed'     => 'danger',
                         default      => 'gray',
                     }),
- 
+
                 TextColumn::make('current_step')
                     ->label('Step')
                     ->placeholder('—')
-                    ->limit(35),
- 
+                    ->limit(30)
+                    ->tooltip(fn($record) => $record->current_step)
+                    ->color(fn($record) => $record?->status === 'failed' ? 'danger' : null),
+
                 TextColumn::make('progress_percent')
                     ->label('Progress')
-                    ->suffix('%'),
- 
+                    ->suffix('%')
+                    ->badge()
+                    ->color(fn($state) => match(true) {
+                        $state >= 100 => 'success',
+                        $state >= 50  => 'info',
+                        $state > 0    => 'warning',
+                        default       => 'gray',
+                    }),
+
                 TextColumn::make('video_file_size_human')
                     ->label('Size')
-                    ->getStateUsing(fn($record) => $record->video_file_size_human),
- 
+                    ->getStateUsing(fn($record) => $record->video_file_size_human)
+                    ->icon('heroicon-o-archive-box'),
+
                 TextColumn::make('created_at')
                     ->label('Created')
                     ->dateTime('d M Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->since()
+                    ->tooltip(fn($record) => $record->created_at->format('d M Y, h:i A')),
             ])
             ->filters([
                 SelectFilter::make('status')

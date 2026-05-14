@@ -1,26 +1,11 @@
 <?php
 
-// ================================================================
-// FILE: app/Filament/Resources/VideoProjects/Schemas/VideoProjectForm.php
-//
-// ✅ FILAMENT 5 SAHI TARIKA:
-//   - configure() ka argument  → Filament\Schemas\Schema
-//   - Section, Grid            → Filament\Schemas\Components\Section/Grid
-//   - TextInput, FileUpload    → Filament\Forms\Components\... (same rahte hain)
-//   - Get (reactive)           → Filament\Schemas\Components\Utilities\Get
-//
-// ❌ JO GALAT THA:
-//   - configure(Form $form): Form   ← yeh v3 style tha
-//   - Filament\Forms\Get            ← yeh v3 style tha
-// ================================================================
-
 namespace App\Filament\Resources\VideoProjects\Schemas;
 
-use Filament\Schemas\Schema;                                    // ✅ Filament 5
-use Filament\Schemas\Components\Section;                        // ✅ Filament 5
-use Filament\Schemas\Components\Utilities\Get;                  // ✅ Filament 5
-
-// Form fields — yeh same rehte hain Filament 3/4/5 mein
+use Filament\Schemas\Schema;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\FileUpload;
@@ -30,17 +15,16 @@ use Filament\Forms\Components\Repeater;
 
 class VideoProjectForm
 {
-    // ✅ SAHI: Schema $schema → Schema
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
 
-                // ════════════════════════════════════════════
-                // SECTION 1 — PROJECT INFO
-                // ════════════════════════════════════════════
-                Section::make('📋 Project Information')
-                    ->description('Project ka naam dalein')
+                // ── PROJECT INFO ─────────────────────────────────────────────
+                Section::make('Project Information')
+                    ->icon('heroicon-o-document-text')
+                    ->description('Give your video project a name and an optional description.')
+                    ->compact()
                     ->schema([
                         TextInput::make('title')
                             ->label('Project Title')
@@ -50,23 +34,23 @@ class VideoProjectForm
                             ->columnSpanFull(),
 
                         Textarea::make('description')
-                            ->label('Description (Optional)')
+                            ->label('Description')
+                            ->placeholder('Optional notes about this project...')
                             ->rows(2)
                             ->columnSpanFull(),
                     ]),
 
-                // ════════════════════════════════════════════
-                // SECTION 2 — IMAGE UPLOAD
-                // ════════════════════════════════════════════
-                Section::make('🖼️ Background Images')
-                    ->description('Ek ya zyada images — har image ek scene banega')
+                // ── BACKGROUND IMAGES ────────────────────────────────────────
+                Section::make('Background Images')
+                    ->icon('heroicon-o-photo')
+                    ->description('Upload one or more images — each image becomes a scene. Drag to reorder.')
                     ->schema([
                         FileUpload::make('image_paths')
-                            ->label('Images Upload Karein')
-                            ->helperText('JPEG, PNG, WebP — max 10MB each — drag to reorder')
+                            ->label('Images')
+                            ->helperText('JPEG, PNG, WebP — max 10 MB each — up to 10 files')
                             ->multiple()
                             ->image()
-                            ->imagePreviewHeight('180')
+                            ->imagePreviewHeight('160')
                             ->maxFiles(10)
                             ->maxSize(10240)
                             ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
@@ -74,37 +58,83 @@ class VideoProjectForm
                             ->reorderable()
                             ->appendFiles()
                             ->required()
+                            ->live()
+                            ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                $count = count($state ?? []);
+                                if ($count === 0) return;
+                                $audio = $get('audio_path');
+                                if (!$audio) return;
+                                $fullPath = \Storage::disk('local')->path($audio);
+                                if (!file_exists($fullPath)) return;
+                                $ffprobe  = env('FFPROBE_BINARIES', 'ffprobe');
+                                $duration = (float) trim(shell_exec(sprintf(
+                                    '"%s" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "%s" 2>&1',
+                                    $ffprobe, $fullPath
+                                )) ?? '0');
+                                if ($duration > 0) {
+                                    $set('image_duration', (int) ceil($duration / $count));
+                                }
+                            })
                             ->columnSpanFull(),
                     ]),
 
-                // ════════════════════════════════════════════
-                // SECTION 3 — AUDIO
-                // ════════════════════════════════════════════
-                Section::make('🎵 Audio')
-                    ->description('Upload karo ya text likho — AI se audio generate hogi')
+                // ── AUDIO ────────────────────────────────────────────────────
+                Section::make('Audio')
+                    ->icon('heroicon-o-musical-note')
+                    ->description('Upload your own audio file, or let AI generate speech from text.')
                     ->columns(2)
                     ->schema([
                         Toggle::make('use_tts')
-                            ->label('Text se Audio Generate Karein? (AI TTS)')
-                            ->helperText('ON = Text likho → AI se audio. OFF = Apni audio upload karo.')
+                            ->label('Generate Audio with AI (Text-to-Speech)')
+                            ->helperText('ON → type text, AI creates the voice. OFF → upload your own file.')
                             ->default(false)
-                            ->live()                                     // ✅ Filament 5: reactive() → live()
+                            ->live()
                             ->columnSpanFull(),
 
-                        // Audio upload — sirf jab use_tts OFF ho
                         FileUpload::make('audio_path')
-                            ->label('Audio File Upload Karein')
-                            ->helperText('MP3, WAV, M4A — max 50MB')
+                            ->label('Audio File')
+                            ->helperText('MP3, WAV, M4A — max 50 MB')
                             ->acceptedFileTypes(['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a'])
                             ->maxSize(51200)
                             ->directory('audio')
                             ->visible(fn(Get $get) => ! $get('use_tts'))
                             ->required(fn(Get $get) => ! $get('use_tts'))
+                            ->live()
+                            ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                                if (!$state) return;
+                                $fullPath = \Storage::disk('local')->path($state);
+                                if (!file_exists($fullPath)) return;
+                                $ffprobe  = env('FFPROBE_BINARIES', 'ffprobe');
+                                $duration = (float) trim(shell_exec(sprintf(
+                                    '"%s" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "%s" 2>&1',
+                                    $ffprobe, $fullPath
+                                )) ?? '0');
+                                if ($duration <= 0) return;
+                                $images = $get('image_paths') ?? [];
+                                $count  = max(1, count($images));
+                                $set('image_duration', (int) ceil($duration / $count));
+                            })
                             ->columnSpanFull(),
 
-                        // TTS text — sirf jab use_tts ON ho
+                        TextInput::make('audio_start')
+                            ->label('Trim Start')
+                            ->helperText('Skip to this second (0 = beginning)')
+                            ->numeric()
+                            ->default(0)
+                            ->minValue(0)
+                            ->suffix('sec')
+                            ->visible(fn(Get $get) => ! $get('use_tts')),
+
+                        TextInput::make('audio_end')
+                            ->label('Trim End')
+                            ->helperText('Stop at this second (empty = full audio)')
+                            ->numeric()
+                            ->minValue(1)
+                            ->suffix('sec')
+                            ->visible(fn(Get $get) => ! $get('use_tts')),
+
                         Textarea::make('tts_text')
-                            ->label('Yahan Text Likho — AI Audio Banega')
+                            ->label('Text for AI Voice')
                             ->placeholder('Bismillah hir Rahman nir Raheem...')
                             ->rows(4)
                             ->visible(fn(Get $get) => $get('use_tts'))
@@ -112,7 +142,7 @@ class VideoProjectForm
                             ->columnSpanFull(),
 
                         Select::make('tts_voice')
-                            ->label('AI Voice Choose Karein')
+                            ->label('AI Voice')
                             ->options([
                                 'alloy'   => '🎙️ Alloy — Neutral',
                                 'echo'    => '🎙️ Echo — Male',
@@ -125,27 +155,26 @@ class VideoProjectForm
                             ->visible(fn(Get $get) => $get('use_tts')),
                     ]),
 
-                // ════════════════════════════════════════════
-                // SECTION 4 — ANIMATION SETTINGS
-                // ════════════════════════════════════════════
-                Section::make('🎬 Animation Settings')
+                // ── ANIMATION & VIDEO ────────────────────────────────────────
+                Section::make('Animation & Video')
+                    ->icon('heroicon-o-play-circle')
+                    ->description('Choose how images animate and the output resolution.')
                     ->columns(3)
                     ->schema([
                         Select::make('animation_type')
-                            ->label('Animation Type')
+                            ->label('Animation')
                             ->options([
-                                'ken_burns'   => '🔍 Ken Burns — Slow Zoom',
-                                'fade'        => '✨ Fade In/Out',
-                                'slide_left'  => '⬅️ Slide Left',
-                                'slide_right' => '➡️ Slide Right',
+                                'ken_burns'   => '🔍 Ken Burns — Slow Zoom In',
                                 'zoom_out'    => '🔎 Zoom Out',
+                                'fade'        => '✨ Fade In / Out',
                                 'static'      => '🖼️ Static',
                             ])
                             ->default('ken_burns')
                             ->required(),
 
-                        TextInput::make('image_duration')        // ✅ TextInput — FileUpload nahi
+                        TextInput::make('image_duration')
                             ->label('Seconds Per Image')
+                            ->helperText('Auto-calculated when audio is uploaded')
                             ->numeric()
                             ->default(8)
                             ->minValue(3)
@@ -153,31 +182,33 @@ class VideoProjectForm
                             ->suffix('sec'),
 
                         Select::make('video_resolution')
-                            ->label('Video Size')
+                            ->label('Resolution')
                             ->options([
-                                '576x1024'  => '📱 576x1024 — Portrait (TikTok/Reels)',
-                                '1080x1920' => '📱 1080x1920 — HD Portrait',
-                                '1080x1080' => '⬜ 1080x1080 — Square',
-                                '1920x1080' => '🖥️ 1920x1080 — Landscape',
+                                '576x1024'  => '📱 576×1024 — Portrait (Reels/TikTok)',
+                                '1080x1920' => '📱 1080×1920 — HD Portrait',
+                                '1080x1080' => '⬜ 1080×1080 — Square',
+                                '1920x1080' => '🖥️ 1920×1080 — Landscape',
                             ])
                             ->default('576x1024')
                             ->required(),
                     ]),
 
-                // ════════════════════════════════════════════
-                // SECTION 5 — SUBTITLES
-                // ════════════════════════════════════════════
-                Section::make('📝 Subtitles')
+                // ── SUBTITLES ────────────────────────────────────────────────
+                Section::make('Subtitles')
+                    ->icon('heroicon-o-language')
+                    ->description('Auto-generate subtitles via OpenAI Whisper. Requires a paid OpenAI API key.')
+                    ->collapsible()
+                    ->collapsed()
                     ->columns(2)
                     ->schema([
                         Toggle::make('generate_subtitles')
-                            ->label('Urdu Subtitles Generate Karein?')
-                            ->helperText('Whisper AI se audio transcribe hogi')
-                            ->default(true)
-                            ->live(),                                    // ✅ reactive() → live()
+                            ->label('Generate Subtitles')
+                            ->helperText('Whisper AI transcribes your audio into on-screen text.')
+                            ->default(false)
+                            ->live(),
 
                         Select::make('subtitle_language')
-                            ->label('Subtitle Language')
+                            ->label('Language')
                             ->options([
                                 'ur' => '🇵🇰 Urdu',
                                 'en' => '🇬🇧 English',
@@ -187,20 +218,22 @@ class VideoProjectForm
                             ->visible(fn(Get $get) => $get('generate_subtitles')),
                     ]),
 
-                // ════════════════════════════════════════════
-                // SECTION 6 — BRANDING
-                // ════════════════════════════════════════════
-                Section::make('🏷️ Branding')
+                // ── BRANDING ─────────────────────────────────────────────────
+                Section::make('Branding & End Card')
+                    ->icon('heroicon-o-tag')
+                    ->description('Add a watermark and optionally show social media handles at the end.')
+                    ->collapsible()
+                    ->collapsed()
                     ->columns(2)
                     ->schema([
                         TextInput::make('watermark_text')
-                            ->label('Watermark (Optional)')
+                            ->label('Watermark Text')
                             ->placeholder('@YourUsername'),
 
                         Toggle::make('show_end_card')
-                            ->label('End Card Dikhao?')
+                            ->label('Show End Card')
                             ->default(false)
-                            ->live(),                                    // ✅ reactive() → live()
+                            ->live(),
 
                         Repeater::make('end_card_data')
                             ->label('Social Media Links')
