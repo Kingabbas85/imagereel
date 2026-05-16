@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd d:\\\\xampp\\\\htdocs\\\\reels-gen; php artisan queue:listen --tries=1' -WindowStyle Normal)"
+      "PowerShell(Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd d:\\\\xampp\\\\htdocs\\\\reels-gen; php artisan queue:listen --tries=1' -WindowStyle Normal)",
+      "Bash(cd /d d:\\\\xampp\\\\htdocs\\\\reels-gen)",
+      "Bash(php artisan *)",
+      "Bash(npm install *)"
     ]
   }
 }

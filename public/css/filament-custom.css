@@ -1,0 +1,121 @@
+/* ============================================================
+   ReelGen — Filament Custom Overrides
+   ============================================================ */
+
+/* ── Sidebar gray background + transition ────────────────── */
+.fi-sidebar {
+    background-color: #f1f5f9 !important;
+    transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+html.dark .fi-sidebar {
+    background-color: #1a2332 !important;
+}
+
+/* Fix scrollbar-gutter globally — prevents layout shift during expand/collapse */
+.fi-sidebar-nav {
+    scrollbar-gutter: auto !important;
+    overflow-x: hidden !important;
+}
+
+/* ── Active item ─────────────────────────────────────────── */
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+    background-color: #ef4444 !important;
+    border-radius: 0 !important;
+}
+html.dark .fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+    background-color: #b91c1c !important;
+}
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn .fi-icon {
+    color: #ffffff !important;
+}
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn .fi-sidebar-item-label {
+    color: #ffffff !important;
+}
+
+/* ── EXPANDED: left-aligned, equal padding ───────────────── */
+.fi-sidebar.fi-sidebar-open .fi-sidebar-nav {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-inline: 1rem !important;
+}
+.fi-sidebar.fi-sidebar-open .fi-sidebar-nav-groups {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-inline: 0 !important;
+}
+.fi-sidebar.fi-sidebar-open .fi-sidebar-item-btn {
+    justify-content: flex-start !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-inline: 0.75rem !important;
+}
+.fi-sidebar.fi-sidebar-open .fi-sidebar-item-label {
+    flex: 1 !important;
+    text-align: left !important;
+}
+
+/* ── COLLAPSED icon strip (desktop) ──────────────────────── */
+@media (min-width: 1024px) {
+
+    .fi-sidebar:not(.fi-sidebar-open) {
+        width: var(--collapsed-sidebar-width) !important;
+        min-width: var(--collapsed-sidebar-width) !important;
+        overflow: hidden !important;
+        border-right: 1px solid #cbd5e1 !important;
+    }
+
+    /* Hide brand logo */
+    .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-header-logo-ctn {
+        display: none !important;
+    }
+
+    /* Center expand chevron */
+    .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-header {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 0 !important;
+        padding-inline: 0 !important;
+    }
+
+    /* Nav: equal padding both sides */
+    .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-nav {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        padding-inline: 0.5rem !important;
+    }
+
+    /* Kill negative margins on nav-groups */
+    .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-nav-groups {
+        margin: 0 !important;
+        margin-inline: 0 !important;
+        width: 100% !important;
+    }
+
+    /* Icon button: perfectly centered */
+    .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-btn {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+        padding: 0.5rem 0 !important;
+        padding-inline: 0 !important;
+        gap: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Group dropdown trigger */
+    .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-group-dropdown-trigger-btn {
+        display: flex !important;
+        justify-content: center !important;
+        width: 100% !important;
+        padding: 0.5rem 0 !important;
+        padding-inline: 0 !important;
+    }
+
+    /* Hide group label */
+    .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-group-btn {
+        display: none !important;
+    }
+}

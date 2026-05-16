@@ -4,6 +4,7 @@ namespace App\Filament\Resources\VideoProjects\Schemas;
 
 use Filament\Schemas\Schema;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Forms\Components\TextInput;
@@ -76,6 +77,10 @@ class VideoProjectForm
                                 }
                             })
                             ->columnSpanFull(),
+
+                        // Image cropper — shows after upload with crop-per-image buttons
+                        View::make('filament.components.image-cropper')
+                            ->columnSpanFull(),
                     ]),
 
                 // ── AUDIO ────────────────────────────────────────────────────
@@ -100,7 +105,7 @@ class VideoProjectForm
                             ->visible(fn(Get $get) => ! $get('use_tts'))
                             ->required(fn(Get $get) => ! $get('use_tts'))
                             ->live()
-                            ->afterStateUpdated(function (Get $get, Set $set, $state) {
+                            ->afterStateUpdated(function (Get $get, Set $set, $state, \Livewire\Component $livewire) {
                                 if (!$state) return;
                                 $fullPath = \Storage::disk('local')->path($state);
                                 if (!file_exists($fullPath)) return;
@@ -109,16 +114,24 @@ class VideoProjectForm
                                     '"%s" -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "%s" 2>&1',
                                     $ffprobe, $fullPath
                                 )) ?? '0');
-                                if ($duration <= 0) return;
-                                $images = $get('image_paths') ?? [];
-                                $count  = max(1, count($images));
-                                $set('image_duration', (int) ceil($duration / $count));
+                                if ($duration > 0) {
+                                    $images = $get('image_paths') ?? [];
+                                    $count  = max(1, count($images));
+                                    $set('image_duration', (int) ceil($duration / $count));
+                                }
+                                // Dispatch event for waveform cropper
+                                $livewire->dispatch('audio-uploaded', path: $state);
                             })
+                            ->columnSpanFull(),
+
+                        // Waveform cropper — renders after audio upload
+                        View::make('filament.components.waveform-cropper')
+                            ->visible(fn(Get $get) => ! $get('use_tts'))
                             ->columnSpanFull(),
 
                         TextInput::make('audio_start')
                             ->label('Trim Start')
-                            ->helperText('Skip to this second (0 = beginning)')
+                            ->helperText('Auto-filled by waveform — or type manually')
                             ->numeric()
                             ->default(0)
                             ->minValue(0)
@@ -127,7 +140,7 @@ class VideoProjectForm
 
                         TextInput::make('audio_end')
                             ->label('Trim End')
-                            ->helperText('Stop at this second (empty = full audio)')
+                            ->helperText('Auto-filled by waveform — empty = full audio')
                             ->numeric()
                             ->minValue(1)
                             ->suffix('sec')

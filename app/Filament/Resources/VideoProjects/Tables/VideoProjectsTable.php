@@ -7,17 +7,14 @@ use App\Models\VideoProject;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-
-// Table components
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
+use Filament\Infolists\Components\ViewEntry;
 
 class VideoProjectsTable
 {
@@ -105,17 +102,26 @@ class VideoProjectsTable
                     ]),
             ])
             ->actions([
-                EditAction::make(),
- 
-                // Generate button
+                EditAction::make()
+                    ->label('')
+                    ->tooltip('Edit'),
+
+                Action::make('preview')
+                    ->label('')
+                    ->tooltip('Preview')
+                    ->icon('heroicon-o-play-circle')
+                    ->color('gray')
+                    ->modalHeading(fn(VideoProject $record) => '🎬 ' . $record->title)
+                    ->modalContent(fn(VideoProject $record) => view('filament.modals.video-preview', ['record' => $record]))
+                    ->modalWidth('lg')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close'),
+
                 Action::make('generate')
-                    ->label('Generate')
+                    ->label('')
+                    ->tooltip('Generate')
                     ->icon('heroicon-o-play')
                     ->color('success')
-                    // ->visible(fn(VideoProject $record) =>
-                    //     dd($record)
-                    //     in_array($record->status, ['draft', 'failed'])
-                    // )
                     ->requiresConfirmation()
                     ->modalHeading('Video Generate Karein?')
                     ->modalDescription('Background mein process hogi.')
@@ -132,17 +138,19 @@ class VideoProjectsTable
                             ->success()
                             ->send();
                     }),
- 
-                // Download button
+
                 Action::make('download')
-                    ->label('Download')
+                    ->label('')
+                    ->tooltip('Download')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('info')
                     ->visible(fn(VideoProject $record) => $record->isCompleted())
                     ->url(fn(VideoProject $record) => $record->video_url)
                     ->openUrlInNewTab(),
- 
-                DeleteAction::make(),
+
+                DeleteAction::make()
+                    ->label('')
+                    ->tooltip('Delete'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([DeleteBulkAction::make()]),
